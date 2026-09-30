@@ -45,19 +45,21 @@ Configurable.
   (document.head || document.documentElement).appendChild(s);
 })();
 ```
+### **Or**
+### **Copy/paste the full script** : [Jellyfin-Hover-Peek.js](https://github.com/Damocles-fr/jellyfin-hover-peek/blob/main/Jellyfin-Hover-Peek.js). No automatic updates, but you can change the settings at the top of the script (delay, width, episodes tooltip, ratings, genres, language...).
 
 #### 5. Click ***Enabled*** => Click ***Save***
 
 #### 6. Done, refresh (F5 or Ctrl + Shift + R) a Jellyfin page.
 
-##### If you used the old HoverDetails script, disable it, both use the same tooltip.
+###### If you used the old HoverDetails script, disable it, both use the same tooltip.
 
-##### Alternatively, you can copy and paste the full script [Jellyfin-Hover-Peek.js](./Jellyfin-Hover-Peek.js) rather than using cdn.jsdelivr. Note that this method does not support automatic updates. You can also install it only for your web-browser with an extension like *Violentmonkey*.
+###### You can also install it only for your web-browser with an extension like *Violentmonkey*.
 
 
 ## Settings
 
-With the full script (copy/paste method), you can change these settings at the top of the script, in `CONFIG`.
+With the full script (2nd method), you can change these settings at the top of the script, in `CONFIG`.
 
 | Setting | Default | Options | Description |
 |---|---|---|---|
