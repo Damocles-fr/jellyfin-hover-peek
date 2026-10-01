@@ -11,6 +11,7 @@ Configurable.
 
 ## Features
 
+- **Compatible Jellyfin 12.+**
 - **Movies**: title, original title, year, runtime, community rating, critic rating, genres, synopsis
 - **Series**: years, number of seasons and episodes, ratings, genres, synopsis
 - **Seasons**: series name, season, number of episodes, synopsis (falls back to the series synopsis when the season has none)
