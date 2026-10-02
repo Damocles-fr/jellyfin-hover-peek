@@ -47,7 +47,7 @@ Configurable.
 })();
 ```
 ### **Or**
-### **Copy/paste the full script** : [Jellyfin-Hover-Peek.js](https://github.com/Damocles-fr/jellyfin-hover-peek/blob/main/Jellyfin-Hover-Peek.js). No automatic updates, but you can change the settings at the top of the script (delay, width, episodes tooltip, ratings, genres, language...).
+### **Copy/paste the full script** : [Jellyfin-Hover-Peek.js](https://github.com/Damocles-fr/jellyfin-hover-peek/releases/download/1.1.0/Jellyfin-Hover-Peek.js). No automatic updates, but you can change the settings at the top of the script (delay, width, episodes tooltip, ratings, genres, language...).
 
 #### 5. Click ***Enabled*** => Click ***Save***
 
@@ -97,7 +97,7 @@ With the full script (2nd method), you can change these settings at the top of t
 - Injects the tooltip directly into Jellyfin using the Jellyfin JavaScript Injector plugin
 - A single event listener waits for the mouse to enter a card, the other listeners are only added while a card is hovered, then removed
 - Data is requested only after a short hover (0.7 s by default), moving the mouse across the page doesn't send any request
-- Requests use the Jellyfin API `/Items` with only the needed fields and no images, so the server only reads its database. It never uses the full item request, which on people without a biography triggers an online metadata refresh
+- Requests use the Jellyfin API `/Items` with only the needed fields. It never uses the full item request which on people without a biography may trigger an online metadata refresh
 - People: one small extra request lists up to 8 titles from your libraries, the counts come with the person request
 - Cached requests for 30 minutes to avoid repeated loading
 - Hidden on scroll, click, key press and page change
