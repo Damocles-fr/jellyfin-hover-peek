@@ -64,8 +64,8 @@ With the full script (2nd method), you can change these settings at the top of t
 
 | Setting | Default | Options | Description |
 |---|---|---|---|
-| `DELAY_MS` | `700` | Number (ms) | Hover time before the tooltip appears |
-| `WARM_DELAY_MS` | `300` | Number (ms) | Shorter delay when moving straight from one card to the next |
+| `DELAY_MS` | `550` | Number (ms) | Hover time before the tooltip appears |
+| `WARM_DELAY_MS` | `200` | Number (ms) | Shorter delay when moving straight from one card to the next |
 | `MOVIES` | `true` | `true` / `false` | Tooltip on movies |
 | `SERIES` | `true` | `true` / `false` | Tooltip on series |
 | `SEASONS` | `true` | `true` / `false` | Tooltip on seasons |
