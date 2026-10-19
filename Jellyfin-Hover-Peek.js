@@ -2,11 +2,6 @@
     'use strict';
 
     /*  Hover Peek v1.2 for Jellyfin 12 (JavaScript Injector)
-     *  Shows a details tooltip when hovering Movie, Series, Season, Episode (optional) and Person cards.
-     *  Shares the #jf-hover-tooltip element with Jellyfin-Episodes-Ratings-Grid, styled by ElegantFin / elegantfin-jf12 when present.
-     *  Server side: targeted /Items queries (ids + selected fields, no images), database only, media files are never read.
-     *  Mouse only: touch and pen input are ignored, so long-press multi-select on touch screens is left untouched.
-     *
      *  SETTINGS
      */
     const CONFIG = {
@@ -15,7 +10,7 @@
         MOVIES: true,                      // Tooltip on movies
         SERIES: true,                      // Tooltip on series
         SEASONS: true,                     // Tooltip on seasons
-        EPISODES: false,                   // Tooltip on episodes (Continue Watching, Next Up, Latest…)
+        EPISODES: true,                    // Tooltip on episodes (Continue Watching, Next Up, Latest…)
         PEOPLE: true,                      // Tooltip on people (cast & crew)
         WIDTH_PX: 400,                     // Tooltip width (px)
         OVERVIEW_LINES: 6,                 // Max lines of synopsis / biography
@@ -79,6 +74,7 @@
         T + '{position:fixed;left:0;top:0;z-index:99999;box-sizing:border-box;width:min(320px,calc(100vw - 20px));max-height:calc(100vh - 20px);overflow:hidden;overflow-wrap:break-word;padding:16px;border-radius:var(--ef12-surfaceRadius,var(--largeRadius,10px));background:var(--drawerColor,rgba(15,15,15,.97));color:var(--textColor,#fff);border:var(--defaultBorder,1px solid rgba(255,255,255,.15));box-shadow:var(--cardShadow,0 12px 40px rgba(0,0,0,.8));-webkit-backdrop-filter:var(--ef12-surfaceBlur,var(--blurDefault,blur(12px)));backdrop-filter:var(--ef12-surfaceBlur,var(--blurDefault,blur(12px)));font-family:inherit;pointer-events:none;opacity:0;transition:opacity .2s ease-in-out;display:none}',
         '@supports (background:color-mix(in srgb,red,blue)){' + T + '{background:color-mix(in srgb,var(--drawerColor,rgba(15,15,15,.95)) 65%,var(--darkerGradientPoint,#0b0b0b))}}',
         T + '.visible{opacity:1;display:block}',
+        '@starting-style{' + T + '.visible{opacity:0}}',
         '.jf-tooltip-title{font-size:1.15em;font-weight:800;margin:0 0 6px;color:var(--fullContrastColor,#fff);line-height:1.2}',
         '.jf-tooltip-meta{font-size:.8em;color:var(--dimTextColor,#10b981);margin-bottom:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}',
         '.jf-tooltip-overview{font-size:.85em;line-height:1.5;color:var(--textColor,#d1d5db);display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}',
