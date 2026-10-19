@@ -16,7 +16,7 @@ Configurable.
 - **Series**: years, number of seasons and episodes, ratings, genres, synopsis
 - **Seasons**: series name, season, number of episodes, synopsis (falls back to the series synopsis when the season has none)
 - **People (cast & crew)**: birth year, age, country, biography, and the titles available on your server
-- **Episodes**: optional, enabled, can be disabled to avoid spoilers.
+- **Episodes**: optional, enabled by default, can be disabled to avoid spoilers
 - **ElegantFin compatible**, and styled by the [elegantfin-jf12](https://github.com/mihaif7/elegantfin-jf12) companion CSS when installed (Screenshot)
 - **Works with or without** [Jellyfin Episodes Ratings Grid](https://github.com/Damocles-fr/jellyfin-imdb-episodes-heatmap-ratings-grid), both share the same tooltip style
 - Inspired by HoverDetails mod from **JellyFrame**, [thanks @grimmdev](https://github.com/grimmdev)
