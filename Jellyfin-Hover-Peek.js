@@ -5,8 +5,8 @@
      *  SETTINGS
      */
     const CONFIG = {
-        DELAY_MS: 700,                     // Hover time (ms) before the tooltip appears
-        WARM_DELAY_MS: 300,                // Shorter delay (ms) when moving straight from one card to the next
+        DELAY_MS: 550,                     // Hover time (ms) before the tooltip appears
+        WARM_DELAY_MS: 200,                // Shorter delay (ms) when moving straight from one card to the next
         MOVIES: true,                      // Tooltip on movies
         SERIES: true,                      // Tooltip on series
         SEASONS: true,                     // Tooltip on seasons
