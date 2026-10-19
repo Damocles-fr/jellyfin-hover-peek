@@ -1,10 +1,10 @@
 (function () {
     'use strict';
 
-    /*  Hover Peek v1.1 — Jellyfin 12 · JavaScript Injector
+    /*  Hover Peek v1.2 for Jellyfin 12 (JavaScript Injector)
      *  Shows a details tooltip when hovering Movie, Series, Season, Episode (optional) and Person cards.
-     *  Shares the #jf-hover-tooltip element with Jellyfin-Episodes-Ratings-Grid; styled by ElegantFin / elegantfin-jf12 when present.
-     *  Server side: targeted /Items queries (ids + selected fields, no images) — database only, media files are never read.
+     *  Shares the #jf-hover-tooltip element with Jellyfin-Episodes-Ratings-Grid, styled by ElegantFin / elegantfin-jf12 when present.
+     *  Server side: targeted /Items queries (ids + selected fields, no images), database only, media files are never read.
      *  Mouse only: touch and pen input are ignored, so long-press multi-select on touch screens is left untouched.
      *
      *  SETTINGS
@@ -15,7 +15,7 @@
         MOVIES: true,                      // Tooltip on movies
         SERIES: true,                      // Tooltip on series
         SEASONS: true,                     // Tooltip on seasons
-        EPISODES: true,                    // Tooltip on episodes (Continue Watching, Next Up, Latest…)
+        EPISODES: false,                   // Tooltip on episodes (Continue Watching, Next Up, Latest…)
         PEOPLE: true,                      // Tooltip on people (cast & crew)
         WIDTH_PX: 400,                     // Tooltip width (px)
         OVERVIEW_LINES: 6,                 // Max lines of synopsis / biography
@@ -47,7 +47,10 @@
     const WIDTH = Math.max(200, +CONFIG.WIDTH_PX || 400);
     const LINES = Math.max(1, +CONFIG.OVERVIEW_LINES || 6);
     const LIMIT = Math.max(0, +CONFIG.PERSON_FILMOGRAPHY_LIMIT || 0);
+    const DELAY = Math.max(0, +CONFIG.DELAY_MS || 0);
+    const WARM = Math.max(0, +CONFIG.WARM_DELAY_MS || 0);
     const CAP = { capture: true, passive: true };
+    const QUIET = new Set(['Shift', 'Control', 'Alt', 'AltGraph', 'Meta', 'OS', 'Fn', 'CapsLock', 'NumLock', 'ScrollLock', 'Unidentified']);
     const SORTS = {
         recent: ['PremiereDate,ProductionYear,SortName', 'Descending,Descending,Ascending'],
         rating: ['CommunityRating,SortName', 'Descending,Ascending'],
@@ -76,7 +79,6 @@
         T + '{position:fixed;left:0;top:0;z-index:99999;box-sizing:border-box;width:min(320px,calc(100vw - 20px));max-height:calc(100vh - 20px);overflow:hidden;overflow-wrap:break-word;padding:16px;border-radius:var(--ef12-surfaceRadius,var(--largeRadius,10px));background:var(--drawerColor,rgba(15,15,15,.97));color:var(--textColor,#fff);border:var(--defaultBorder,1px solid rgba(255,255,255,.15));box-shadow:var(--cardShadow,0 12px 40px rgba(0,0,0,.8));-webkit-backdrop-filter:var(--ef12-surfaceBlur,var(--blurDefault,blur(12px)));backdrop-filter:var(--ef12-surfaceBlur,var(--blurDefault,blur(12px)));font-family:inherit;pointer-events:none;opacity:0;transition:opacity .2s ease-in-out;display:none}',
         '@supports (background:color-mix(in srgb,red,blue)){' + T + '{background:color-mix(in srgb,var(--drawerColor,rgba(15,15,15,.95)) 65%,var(--darkerGradientPoint,#0b0b0b))}}',
         T + '.visible{opacity:1;display:block}',
-        '@starting-style{' + T + '.visible{opacity:0}}',
         '.jf-tooltip-title{font-size:1.15em;font-weight:800;margin:0 0 6px;color:var(--fullContrastColor,#fff);line-height:1.2}',
         '.jf-tooltip-meta{font-size:.8em;color:var(--dimTextColor,#10b981);margin-bottom:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}',
         '.jf-tooltip-overview{font-size:.85em;line-height:1.5;color:var(--textColor,#d1d5db);display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}',
@@ -98,8 +100,8 @@
         S + ' .jf-hp-more{margin-top:2px;font-size:.78em;color:var(--dimTextColor,#9ca3af)}'
     ].join('\n');
 
-    let tip = null, root = null, cur = null, blocked = null, timer = 0, raf = 0, seq = 0;
-    let shown = false, armed = false, styled = false, warm = 0, mx = 0, my = 0, tw = 0, th = 0;
+    let tip = null, root = null, style = null, cur = null, block = null, timer = 0, raf = 0, seq = 0;
+    let shown = false, armed = false, warm = 0, mx = 0, my = 0, tw = 0, th = 0;
 
     const lang = () => String((CONFIG.LANGUAGE !== 'auto' && CONFIG.LANGUAGE) || document.documentElement.lang || navigator.language || 'en');
     const tr = () => I18N[lang().slice(0, 2).toLowerCase()] || I18N.en;
@@ -134,7 +136,10 @@
         const u = c.getCurrentUserId();
         return u ? { c, u } : null;
     };
-    const query = (a, p) => a.c.getJSON(a.c.getUrl('Items?' + new URLSearchParams(p)));
+    const query = (a, p) => new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('timeout')), 15000);
+        a.c.getJSON(a.c.getUrl('Items?' + new URLSearchParams(p))).then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+    });
 
     const cache = new Map(), inflight = new Map();
     const put = (k, v, ttl) => {
@@ -148,7 +153,7 @@
         let p = inflight.get(k);
         if (!p) {
             p = Promise.resolve().then(fn)
-                .then(v => { put(k, v, v ? TTL : 30000); return v; }, () => { put(k, null, 30000); return null; })
+                .then(v => { put(k, v, v ? TTL : 10000); return v; }, () => { put(k, null, 10000); return null; })
                 .finally(() => inflight.delete(k));
             inflight.set(k, p);
         }
@@ -295,38 +300,49 @@
         }
         return r;
     };
-    const worth = m => !!(m.title && (m.meta.length || m.genres || m.overview || m.sub || m.films));
+    const worth = m => !!(m && m.title && (m.meta.length || m.genres || m.overview || m.sub || m.films));
 
-    const ensureStyle = () => {
-        if (styled) return;
-        styled = true;
-        const s = document.createElement('style');
-        s.id = document.getElementById('jf-hover-tooltip-style') ? 'jf-hover-peek-style' : 'jf-hover-tooltip-style';
-        s.textContent = CSS;
-        (document.head || document.documentElement).appendChild(s);
-    };
-    const tipEl = () => {
-        if (tip && tip.isConnected) return tip;
-        tip = document.getElementById(TIP);
-        if (!tip) { tip = document.createElement('div'); tip.id = TIP; document.body.appendChild(tip); }
+    const prepare = () => {
+        if (!style || !style.isConnected) {
+            style = document.createElement('style');
+            style.id = document.getElementById(TIP + '-style') ? 'jf-hover-peek-style' : TIP + '-style';
+            style.textContent = CSS;
+            (document.head || document.documentElement).appendChild(style);
+        }
+        if (!tip || !tip.isConnected) {
+            tip = document.getElementById(TIP);
+            if (!tip) {
+                tip = document.createElement('div');
+                tip.id = TIP;
+                document.body.appendChild(tip);
+            }
+        }
         return tip;
     };
 
     const place = () => {
         raf = 0;
-        if (!shown || !tip) return;
+        if (!shown || !root || root.parentNode !== tip) return;
         const g = 10, vw = window.innerWidth, vh = window.innerHeight;
         let x = mx + 15, y = my + 15;
         if (x + tw + g > vw) x = mx - 15 - tw;
         if (y + th + g > vh) y = my - 15 - th;
-        tip.style.left = Math.max(g, Math.min(x, vw - tw - g)) + 'px';
-        tip.style.top = Math.max(g, Math.min(y, vh - th - g)) + 'px';
+        tip.style.left = Math.round(Math.max(g, Math.min(x, vw - tw - g))) + 'px';
+        tip.style.top = Math.round(Math.max(g, Math.min(y, vh - th - g))) + 'px';
+    };
+
+    const hideTip = () => {
+        if (raf) { cancelAnimationFrame(raf); raf = 0; }
+        if (!shown) return;
+        shown = false;
+        if (tip && root && root.parentNode === tip) { tip.classList.remove('visible'); tip.style.width = ''; }
+        root = null;
     };
 
     const show = m => {
-        if (document.hidden || !worth(m)) return;
-        ensureStyle();
-        const t = tipEl(), r = render(m);
+        const t = prepare();
+        if (t.parentNode !== document.body || t.nextElementSibling) document.body.appendChild(t);
+        const r = render(m);
         t.textContent = '';
         t.appendChild(r);
         root = r;
@@ -338,34 +354,9 @@
         place();
     };
 
-    const hide = leave => {
-        if (timer) { clearTimeout(timer); timer = 0; }
-        if (raf) { cancelAnimationFrame(raf); raf = 0; }
-        seq++;
-        if (shown) {
-            shown = false;
-            warm = leave ? Date.now() + 600 : 0;
-            if (tip && root && root.parentNode === tip) { tip.classList.remove('visible'); tip.style.width = ''; }
-        } else if (!leave) warm = 0;
-        root = null;
-        cur = null;
-        disarm();
-    };
-
-    const load = async s => {
-        const c = cur;
-        if (!c || s !== seq) return;
-        let m = null;
-        try { m = await model(c.id, c.kind); } catch (_) { m = null; }
-        if (!m || s !== seq || cur !== c) return;
-        if (!c.el.isConnected) {
-            const at = document.elementFromPoint(mx, my);
-            const card = at && at.closest ? at.closest(SEL) : null;
-            if (!card || card.getAttribute('data-id') !== c.id) { hide(true); return; }
-            c.el = card;
-        }
-        if (c.el.querySelector('.itemSelectionPanel')) return;
-        show(m);
+    const cardAt = () => {
+        const e = document.elementFromPoint(mx, my);
+        return e && e.closest ? e.closest(SEL) : null;
     };
 
     const kindOf = card => {
@@ -375,65 +366,125 @@
         return KINDS.has(type) ? type : null;
     };
 
+    const schedule = ms => {
+        if (timer) clearTimeout(timer);
+        const s = ++seq;
+        timer = setTimeout(() => { timer = 0; fire(s); }, ms);
+    };
+
+    const release = leave => {
+        if (timer) { clearTimeout(timer); timer = 0; }
+        seq++;
+        if (shown && leave) warm = Date.now() + 600;
+        else if (!leave) warm = 0;
+        hideTip();
+        cur = null;
+        disarm();
+    };
+
+    const fire = async s => {
+        const c = cur;
+        if (!c || s !== seq) return;
+        if (document.hidden) return;
+        const at = cardAt();
+        const atId = at ? at.getAttribute('data-id') : null;
+        if (!at) { release(true); return; }
+        if (atId !== c.id) {
+            const k = kindOf(at);
+            if (!k) { release(true); return; }
+            c.id = atId;
+            c.kind = k;
+        }
+        c.busy = true;
+        let m = null;
+        try { m = await model(c.id, c.kind); } catch (_) { m = null; }
+        if (s !== seq || cur !== c) return;
+        c.busy = false;
+        if (!worth(m)) { c.done = true; return; }
+        const now = cardAt();
+        if (!now || now.getAttribute('data-id') !== c.id) { schedule(WARM); return; }
+        if (now.querySelector('.itemSelectionPanel')) { c.done = true; return; }
+        show(m);
+    };
+
+    const pause = () => {
+        if (!cur) return;
+        if (timer) { clearTimeout(timer); timer = 0; }
+        seq++;
+        hideTip();
+        cur.busy = false;
+        cur.done = false;
+    };
+    const soft = () => {
+        if (!cur) return;
+        pause();
+        schedule(DELAY);
+    };
+    const hard = e => {
+        if (!e.isTrusted || !cur) return;
+        if (e.type === 'keydown' && (QUIET.has(e.key) || /^F\d+$/.test(e.key))) return;
+        block = { id: cur.id, until: Date.now() + 2000 };
+        release(false);
+    };
     const onMove = e => {
+        if (e.pointerType !== 'mouse') return;
         mx = e.clientX;
         my = e.clientY;
-        if (shown && !raf) raf = requestAnimationFrame(place);
+        if (shown) { if (!raf) raf = requestAnimationFrame(place); }
+        else if (cur && !timer && !cur.busy && !cur.done) schedule(DELAY);
     };
-    const onKill = () => { if (cur) blocked = cur.id; hide(false); };
-    const onOut = e => { if (!e.relatedTarget) hide(false); };
-    const onVis = () => { if (document.hidden) hide(false); };
+    const onOut = e => { if (!e.relatedTarget && e.pointerType === 'mouse') pause(); };
+    const onWheel = e => { if (e.isTrusted) soft(); };
+    const onVis = () => { if (document.hidden) pause(); };
 
     function arm() {
         if (armed) return;
         armed = true;
         document.addEventListener('pointermove', onMove, CAP);
         document.addEventListener('pointerout', onOut, CAP);
-        document.addEventListener('pointerdown', onKill, CAP);
-        document.addEventListener('keydown', onKill, CAP);
-        document.addEventListener('scroll', onKill, CAP);
-        document.addEventListener('viewbeforehide', onKill, true);
+        document.addEventListener('pointerdown', hard, CAP);
+        document.addEventListener('keydown', hard, CAP);
+        document.addEventListener('wheel', onWheel, CAP);
+        document.addEventListener('viewbeforehide', soft, true);
         document.addEventListener('visibilitychange', onVis);
-        window.addEventListener('blur', onKill);
-        window.addEventListener('popstate', onKill);
-        window.addEventListener('hashchange', onKill);
+        window.addEventListener('popstate', soft);
+        window.addEventListener('hashchange', soft);
     }
     function disarm() {
         if (!armed) return;
         armed = false;
         document.removeEventListener('pointermove', onMove, true);
         document.removeEventListener('pointerout', onOut, true);
-        document.removeEventListener('pointerdown', onKill, true);
-        document.removeEventListener('keydown', onKill, true);
-        document.removeEventListener('scroll', onKill, true);
-        document.removeEventListener('viewbeforehide', onKill, true);
+        document.removeEventListener('pointerdown', hard, true);
+        document.removeEventListener('keydown', hard, true);
+        document.removeEventListener('wheel', onWheel, true);
+        document.removeEventListener('viewbeforehide', soft, true);
         document.removeEventListener('visibilitychange', onVis);
-        window.removeEventListener('blur', onKill);
-        window.removeEventListener('popstate', onKill);
-        window.removeEventListener('hashchange', onKill);
+        window.removeEventListener('popstate', soft);
+        window.removeEventListener('hashchange', soft);
     }
 
-    const start = (card, kind, e) => {
-        cur = { el: card, id: card.getAttribute('data-id'), kind };
-        mx = e.clientX;
-        my = e.clientY;
-        arm();
-        const s = ++seq;
-        timer = setTimeout(() => { timer = 0; load(s); }, Date.now() < warm ? CONFIG.WARM_DELAY_MS : CONFIG.DELAY_MS);
-    };
-
-    document.addEventListener('pointerover', e => {
-        if (e.pointerType !== 'mouse') return;
+    const enter = e => {
+        if (!e.isTrusted || e.pointerType !== 'mouse') return;
         const t = e.target;
         const card = t && t.closest ? t.closest(SEL) : null;
         const id = card ? card.getAttribute('data-id') : null;
         if (cur) {
-            if (id === cur.id) { cur.el = card; return; }
-            hide(true);
+            if (id === cur.id) return;
+            release(true);
         }
-        if (id !== blocked) blocked = null;
-        if (!card || blocked) return;
+        if (block && (id !== block.id || Date.now() > block.until)) block = null;
+        if (!card || block) return;
         const kind = kindOf(card);
-        if (kind) start(card, kind, e);
-    }, { passive: true });
+        if (!kind) return;
+        mx = e.clientX;
+        my = e.clientY;
+        prepare();
+        cur = { id, kind, busy: false, done: false };
+        arm();
+        schedule(Date.now() < warm ? WARM : DELAY);
+    };
+
+    document.addEventListener('pointerover', enter, CAP);
+    document.addEventListener('pointermove', e => { if (!cur) enter(e); }, { capture: true, passive: true, once: true });
 })();
